@@ -42,6 +42,8 @@
 .fora .nav,.fora .fab{display:none}
 .sync{margin-left:auto;font-size:13px;font-weight:600;color:var(--muted)}
 .sync + .nav{margin-left:0}
+.tema{border:1px solid var(--line);border-radius:50%;font-size:17px;color:var(--ink)}
+.fora .tema{margin-left:auto}
 .login{max-width:420px;margin:0 auto;padding:48px 0;display:grid;gap:18px;justify-items:start}
 .login h1{font-size:clamp(36px,10vw,56px);font-weight:800;line-height:.95}
 .login form{width:100%}
@@ -212,6 +214,7 @@ textarea{min-height:92px;resize:vertical}
 .toast[hidden]{display:none}
 @media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
 </style>
+<script>try{var t=localStorage.getItem('ca_tema');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
 </head>
 <body>
 <header class="top"><div class="wrap">
@@ -221,6 +224,7 @@ textarea{min-height:92px;resize:vertical}
     <button type="button" data-act="nav" data-v="imoveis" id="nav-imoveis">Imóveis</button>
     <button type="button" data-act="nav" data-v="agenda" id="nav-agenda">Agenda</button>
   </nav>
+  <button type="button" class="icon tema" id="tema" data-act="tema"></button>
 </div></header>
 <div id="banner"></div>
 <main class="wrap" id="app"></main>
@@ -671,6 +675,7 @@ document.addEventListener('click', async ev => {
   else if (a === 'excluir-imovel') { const p = getP(pid); if (await confirmar('Excluir ' + p.nome + '?', 'Fotos, custos, inquilino e interessados deste imóvel são apagados de vez.', 'Excluir imóvel')) {
       state.props = state.props.filter(k => k.id !== pid); state.openId = null; render();
       try { await (filas[pid] || Promise.resolve()); await api('excluir', {id: pid}); } catch (e) { toast('Não foi possível excluir. Tente de novo.'); } } }
+  else if (a === 'tema') { const novo = temaAtual() === 'dark' ? 'light' : 'dark'; document.documentElement.setAttribute('data-theme', novo); ls.set('ca_tema', novo); botaoTema(); }
   else if (a === 'sair') sair();
   else if (a === 'recarregar') carregar();
   else if (a === 'backup') { const u = URL.createObjectURL(new Blob([JSON.stringify({exportadoEm: new Date().toISOString(), imoveis: state.props}, null, 2)], {type: 'application/json'})); const l = document.createElement('a'); l.href = u; l.download = 'carteira-alugueis-' + hojeStr() + '.json'; document.body.appendChild(l); l.click(); l.remove(); }
@@ -714,7 +719,10 @@ async function carregar(silencioso) {
   render();
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && state.logado && state.loaded && !pend && $('#sheet').hidden && Date.now() - ultima > 60000) carregar(true); });
+const temaAtual = () => document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+function botaoTema() { const b = $('#tema'), escuro = temaAtual() === 'dark'; b.textContent = escuro ? '☀' : '☾'; b.setAttribute('aria-label', escuro ? 'Mudar para o tema claro' : 'Mudar para o tema escuro'); b.title = escuro ? 'Tema claro' : 'Tema escuro'; }
 function iniciar() {
+  botaoTema();
   if (location.hash === '#agenda') state.view = 'agenda';
   state.logado = !!(token && apiUrl()); render();
   if (state.logado) carregar();
