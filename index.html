@@ -254,7 +254,7 @@ const VSTATUS = {agendada:'Agendada', realizada:'Realizada', cancelada:'Cancelad
 const FREQ = {mensal:'por mês', anual:'por ano', unico:'uma vez'};
 
 const state = {props:[], loaded:false, erro:false, logado:false, view:'imoveis', openId:null, tab:'resumo', fTipo:'todos', fStatus:'todos', q:''};
-const API_FIXA = ''; // Opcional: cole aqui o endereço do app da web do Apps Script (termina em /exec)
+const API_FIXA = 'https://script.google.com/macros/s/AKfycbxRUb_yCn5zekNrZdqlTF8OH0VADC-qH0EMKvC_vX_-niFsGsJr30vNln5fWRxzWjTi/exec'; // Opcional: cole aqui o endereço do app da web do Apps Script (termina em /exec)
 const ls = { get: k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }, set: (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} } };
 const apiUrl = () => API_FIXA || ls.get('ca_api');
 let token = ls.get('ca_token'), pend = 0, ultima = 0;
