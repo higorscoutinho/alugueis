@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carteira de Aluguéis</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#E8501A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Aluguéis">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Ideia: cada imóvel é uma chave no claviculário. Etiqueta de chave com código, placa de rua para o status, régua de ocupação no topo. */
+:root{
+  --bg:#ECEFEA; --surface:#FBFCFA; --sunk:#E2E7E1; --ink:#11211D; --muted:#5C6B66; --line:#D3DAD3;
+  --accent:#E8501A; --accent-ink:#FFFFFF; --placa:#FFD43A; --placa-ink:#1A1A12;
+  --ok:#1E8757; --warn:#A96A12; --info:#2A67AD; --off:#76827C; --bad:#C0392B;
+  --display:'Bricolage Grotesque','Trebuchet MS',system-ui,sans-serif;
+  --body:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --r:18px; --shadow:0 1px 2px rgba(17,33,29,.06),0 8px 24px -12px rgba(17,33,29,.18);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0D1715; --surface:#15221F; --sunk:#0F1B19; --ink:#E9F0EB; --muted:#94A49D; --line:#283934;
+    --accent:#FF7240; --accent-ink:#1A0D06; --ok:#4CC790; --warn:#E3B04B; --info:#74AAE8; --off:#8C9892; --bad:#F0715F;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px -14px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0D1715; --surface:#15221F; --sunk:#0F1B19; --ink:#E9F0EB; --muted:#94A49D; --line:#283934;
+  --accent:#FF7240; --accent-ink:#1A0D06; --ok:#4CC790; --warn:#E3B04B; --info:#74AAE8; --off:#8C9892; --bad:#F0715F;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px -14px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+.fora .nav,.fora .fab{display:none}
+.sync{margin-left:auto;font-size:13px;font-weight:600;color:var(--muted)}
+.sync + .nav{margin-left:0}
+.login{max-width:420px;margin:0 auto;padding:48px 0;display:grid;gap:18px;justify-items:start}
+.login h1{font-size:clamp(36px,10vw,56px);font-weight:800;line-height:.95}
+.login form{width:100%}
+.rodape{display:flex;gap:10px;flex-wrap:wrap;padding:32px 0 0}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 16px/1.45 var(--body);-webkit-font-smoothing:antialiased;padding-bottom:96px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:-.02em}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0}
+a{color:inherit}
+img{max-width:100%;display:block}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+
+/* topo */
+.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:14px;height:60px}
+.brand{font:800 20px/1 var(--display);letter-spacing:-.03em;display:flex;align-items:center;gap:9px}
+.brand i{width:26px;height:26px;border-radius:50%;background:var(--accent);position:relative;flex:none}
+.brand i::after{content:"";position:absolute;inset:8px;border-radius:50%;background:var(--bg)}
+.nav{margin-left:auto;display:flex;gap:4px;background:var(--sunk);padding:4px;border-radius:999px}
+.nav button{padding:8px 16px;border-radius:999px;font-weight:600;font-size:14px;color:var(--muted)}
+.nav button[aria-current="true"]{background:var(--ink);color:var(--bg)}
+.banner{background:var(--placa);color:var(--placa-ink);font-size:14px;font-weight:600;padding:8px 16px;text-align:center}
+
+/* herói: régua de ocupação */
+.hero{padding:28px 0 8px;display:grid;gap:18px}
+.hero h1{font-size:clamp(34px,8vw,64px);font-weight:800;line-height:.95}
+.hero h1 em{font-style:normal;color:var(--accent)}
+.regua{display:flex;gap:5px;height:44px}
+.regua button{flex:1;min-width:10px;border-radius:8px;position:relative;transition:transform .15s}
+.regua button:hover{transform:translateY(-3px)}
+.s-disponivel{background:var(--placa)} .s-alugado{background:var(--ok)} .s-reservado{background:var(--info)} .s-reforma{background:var(--off)}
+.legenda{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted)}
+.legenda span{display:flex;align-items:center;gap:6px}
+.legenda b{width:10px;height:10px;border-radius:3px;display:inline-block}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+@media(min-width:760px){.stats{grid-template-columns:repeat(4,1fr)}}
+.stat{background:var(--surface);padding:14px 16px;display:grid;gap:2px}
+.stat small{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.stat strong{font:700 22px/1.15 var(--display);letter-spacing:-.02em}
+.stat span{font-size:13px;color:var(--muted)}
+
+/* filtros */
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:20px 0 14px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:8px 14px;border-radius:999px;border:1px solid var(--line);font-size:14px;font-weight:600;color:var(--muted);background:var(--surface)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.search{flex:1;min-width:180px}
+input,select,textarea{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 13px;min-height:46px}
+textarea{min-height:92px;resize:vertical}
+.tools select{width:auto}
+
+/* cartões */
+.grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+.card{background:var(--surface);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);text-align:left;display:flex;flex-direction:column;transition:transform .18s}
+.card:hover{transform:translateY(-4px)}
+.foto{position:relative;aspect-ratio:4/3;background:repeating-linear-gradient(135deg,var(--sunk) 0 12px,var(--bg) 12px 24px);display:grid;place-items:center;color:var(--muted);font-size:13px;font-weight:600}
+.foto img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.tag{position:absolute;top:12px;left:12px;background:var(--surface);color:var(--ink);font:700 12px/1 var(--display);letter-spacing:.06em;padding:8px 12px 8px 26px;border-radius:999px 8px 8px 999px;box-shadow:var(--shadow)}
+.tag::before{content:"";position:absolute;left:9px;top:50%;width:9px;height:9px;margin-top:-4.5px;border-radius:50%;background:var(--bg);box-shadow:inset 0 0 0 1.5px var(--muted)}
+.placa{font:800 12px/1 var(--display);letter-spacing:.12em;padding:7px 10px;border-radius:5px;display:inline-block;color:#fff;white-space:nowrap}
+.placa.s-disponivel{color:var(--placa-ink)}
+.foto .placa{position:absolute;left:12px;bottom:12px;transform:rotate(-2.5deg);box-shadow:0 4px 12px rgba(0,0,0,.25)}
+.nfotos{position:absolute;right:12px;bottom:12px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;font-weight:600;padding:4px 8px;border-radius:6px}
+.card-b{padding:14px 16px 16px;display:grid;gap:6px}
+.card-b h3{font-size:19px;font-weight:700}
+.end{font-size:14px;color:var(--muted)}
+.preco{font:700 20px/1.2 var(--display)}
+.preco small{font:500 13px var(--body);color:var(--muted)}
+.avisos{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.pill{font-size:12px;font-weight:600;padding:4px 9px;border-radius:999px;background:var(--sunk);color:var(--muted);display:inline-flex;gap:5px;align-items:center}
+.pill.warn{color:var(--warn)} .pill.info{color:var(--info)} .pill.ok{color:var(--ok)} .pill.bad{color:var(--bad)}
+
+.vazio{border:2px dashed var(--line);border-radius:var(--r);padding:40px 20px;text-align:center;display:grid;gap:14px;justify-items:center;color:var(--muted)}
+.vazio .placa{font-size:22px;padding:14px 20px;transform:rotate(-3deg)}
+.vazio h2{color:var(--ink);font-size:24px}
+
+/* botões */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 18px;border-radius:12px;font-weight:700;background:var(--ink);color:var(--bg)}
+.btn.acc{background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.sm{min-height:36px;padding:0 12px;font-size:14px;border-radius:10px}
+.btn.danger{background:transparent;color:var(--bad);border:1px solid var(--line)}
+.fab{position:fixed;right:16px;bottom:20px;z-index:15;box-shadow:0 10px 26px -8px var(--accent);min-height:54px;border-radius:999px;padding:0 22px}
+.link{font-weight:700;color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+
+/* detalhe */
+.voltar{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--muted);padding:16px 0 10px}
+.galeria{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:8px}
+.galeria>*{flex:none;height:230px;border-radius:14px;overflow:hidden;scroll-snap-align:start;position:relative;background:var(--sunk)}
+.galeria button.ft{width:min(78vw,340px)}
+.galeria img{width:100%;height:100%;object-fit:cover}
+.capa{position:absolute;left:8px;top:8px;background:var(--placa);color:var(--placa-ink);font-size:11px;font-weight:700;padding:3px 7px;border-radius:5px}
+.addfoto{width:150px;border:2px dashed var(--line);background:transparent !important;display:grid;place-items:center;text-align:center;color:var(--muted);font-weight:600;font-size:14px;padding:10px}
+.addfoto b{font:700 34px/1 var(--display);color:var(--accent);display:block}
+.dhead{display:grid;gap:10px;padding:16px 0 6px}
+.dhead h1{font-size:clamp(28px,6vw,44px);font-weight:800;line-height:1}
+.dhead .linha{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.tag.inline{position:static;display:inline-block;box-shadow:none;border:1px solid var(--line)}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--sunk);padding:4px;border-radius:14px}
+.seg button{padding:10px 4px;border-radius:10px;font-size:13px;font-weight:700;color:var(--muted)}
+.seg button[aria-pressed="true"]{color:#fff}
+.seg button[aria-pressed="true"].s-disponivel{color:var(--placa-ink)}
+.tabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin:18px 0;overflow-x:auto}
+.tabs button{padding:12px 0;font-weight:700;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
+.tabs sup{font-size:11px;background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:1px 6px;margin-left:4px}
+.painel{display:grid;gap:16px}
+@media(min-width:860px){.painel.duas{grid-template-columns:1fr 1fr;align-items:start}}
+.bloco{background:var(--surface);border-radius:var(--r);padding:18px;box-shadow:var(--shadow);display:grid;gap:12px}
+.bloco h2{font-size:18px;font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.dl{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:15px;margin:0}
+.dl dt{color:var(--muted)} .dl dd{margin:0;text-align:right;font-weight:600;overflow-wrap:anywhere}
+.lista{display:grid;gap:0;margin:0;padding:0;list-style:none}
+.lista li{display:flex;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.lista li:first-child{border-top:0}
+.lista .g{flex:1;min-width:0}
+.lista small{display:block;color:var(--muted);font-size:13px}
+.total{display:flex;justify-content:space-between;align-items:baseline;border-top:2px solid var(--ink);padding-top:10px;font-weight:700}
+.total strong{font:800 24px var(--display)}
+.pos{color:var(--ok)} .neg{color:var(--bad)}
+.lead{border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:10px}
+.lead-h{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+.lead-h h3{font-size:18px}
+.contatos{display:flex;flex-wrap:wrap;gap:8px;font-size:14px}
+.visita{display:flex;gap:10px;align-items:center;background:var(--sunk);border-radius:10px;padding:8px 10px;font-size:14px;flex-wrap:wrap}
+.visita .g{flex:1;min-width:120px}
+.icon{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:var(--muted);font-size:18px;flex:none}
+.icon:hover{background:var(--sunk);color:var(--ink)}
+.nota{font-size:14px;color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere}
+
+/* agenda */
+.dia{display:grid;gap:10px;margin-bottom:22px}
+.dia h2{font-size:15px;font-family:var(--body);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.ag{background:var(--surface);border-radius:14px;padding:14px;box-shadow:var(--shadow);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.ag .hora{font:800 22px var(--display);min-width:64px}
+.ag .g{flex:1;min-width:150px}
+
+/* folha/modal */
+.sheet{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.sheet[hidden]{display:none}
+.sheet-bg{position:absolute;inset:0;background:rgba(8,14,12,.55)}
+.sheet-card{position:relative;background:var(--bg);width:min(100%,560px);max-height:92%;overflow:auto;border-radius:22px 22px 0 0;padding:20px 18px 18px;display:grid;gap:14px;animation:sobe .22s ease-out}
+@media(min-width:620px){.sheet{align-items:center}.sheet-card{border-radius:22px}}
+@keyframes sobe{from{transform:translateY(24px);opacity:.6}}
+.sheet-card h2{font-size:24px;font-weight:800}
+.campos{display:grid;gap:12px;grid-template-columns:repeat(6,1fr)}
+.f{grid-column:span 6;display:grid;gap:5px;font-size:13px;font-weight:600;color:var(--muted)}
+.f.c3{grid-column:span 3}.f.c2{grid-column:span 2}.f.c4{grid-column:span 4}
+.sheet-acoes{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;padding-top:4px}
+.sheet-acoes .esq{margin-right:auto}
+.light{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.92);display:grid;grid-template-rows:1fr auto;color:#fff}
+.light[hidden]{display:none}
+.light img{width:100%;height:100%;object-fit:contain;min-height:0}
+.light-bar{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:12px}
+.light-bar .btn{background:rgba(255,255,255,.14);color:#fff}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;z-index:70;max-width:90%;text-align:center}
+.toast[hidden]{display:none}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="brand"><i></i>Carteira</div>
+  <span class="sync" id="sync" role="status"></span>
+  <nav class="nav" aria-label="Seções">
+    <button type="button" data-act="nav" data-v="imoveis" id="nav-imoveis">Imóveis</button>
+    <button type="button" data-act="nav" data-v="agenda" id="nav-agenda">Agenda</button>
+  </nav>
+</div></header>
+<div id="banner"></div>
+<main class="wrap" id="app"></main>
+<button type="button" class="btn acc fab" data-act="novo-imovel" id="fab">+ Novo imóvel</button>
+<input type="file" id="fileIn" accept="image/*" multiple hidden>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-bg" data-act="fechar-sheet"></div>
+  <form class="sheet-card" id="sheetForm" novalidate></form>
+</div>
+<div class="light" id="light" hidden>
+  <img id="lightImg" alt="Foto do imóvel">
+  <div class="light-bar">
+    <button type="button" class="btn sm" data-act="light-ant">‹ Anterior</button>
+    <button type="button" class="btn sm" data-act="light-prox">Próxima ›</button>
+    <button type="button" class="btn sm" data-act="light-capa">Usar como capa</button>
+    <button type="button" class="btn sm" data-act="light-del">Excluir foto</button>
+    <button type="button" class="btn sm" data-act="light-fechar">Fechar</button>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const clone = o => JSON.parse(JSON.stringify(o));
+const brl = n => (Number(n) || 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+const numIn = n => n ? Number(n).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : '';
+const parseBRL = s => { s = String(s || '').replace(/[^\d,.-]/g, ''); if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.'); const n = parseFloat(s); return isFinite(n) ? n : 0; };
+const hojeStr = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
+const dias = d => Math.round((new Date(d + 'T00:00') - new Date(hojeStr() + 'T00:00')) / 864e5);
+const fData = (d, o) => d ? new Date(d + 'T00:00').toLocaleDateString('pt-BR', o || {day:'2-digit', month:'2-digit', year:'numeric'}) : '';
+const fDia = d => { const n = dias(d); const base = fData(d, {weekday:'long', day:'numeric', month:'long'}); return n === 0 ? 'Hoje · ' + base : n === 1 ? 'Amanhã · ' + base : base; };
+
+const STATUS = {disponivel:['Disponível','ALUGA-SE'], reservado:['Reservado','RESERVADO'], alugado:['Alugado','ALUGADO'], reforma:['Em reforma','EM REFORMA']};
+const ESTAGIO = {novo:'Novo contato', visita:'Visita marcada', proposta:'Fez proposta', fechado:'Fechou', desistiu:'Desistiu'};
+const VSTATUS = {agendada:'Agendada', realizada:'Realizada', cancelada:'Cancelada', faltou:'Não compareceu'};
+const FREQ = {mensal:'por mês', anual:'por ano', unico:'uma vez'};
+
+const state = {props:[], loaded:false, erro:false, logado:false, view:'imoveis', openId:null, tab:'resumo', fTipo:'todos', fStatus:'todos', q:''};
+const API_FIXA = ''; // Opcional: cole aqui o endereço do app da web do Apps Script (termina em /exec)
+const ls = { get: k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }, set: (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} } };
+const apiUrl = () => API_FIXA || ls.get('ca_api');
+let token = ls.get('ca_token'), pend = 0, ultima = 0;
+const filas = {}, urls = {};
+async function api(acao, dados) {
+  let j;
+  try { const r = await fetch(apiUrl(), {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify(Object.assign({acao, token}, dados || {}))}); j = await r.json(); }
+  catch (e) { throw new Error('rede'); }
+  if (!j.ok) { if (j.erro === 'sessao') sair(true); throw new Error(j.erro || 'erro'); }
+  return j;
+}
+function sincronia() { const el = $('#sync'); if (el) el.textContent = pend > 0 ? 'Salvando…' : ''; }
+function sair(expirou) {
+  if (!expirou && token) api('sair').catch(() => {});
+  token = ''; ls.set('ca_token', ''); state.logado = false; state.loaded = false; state.props = []; state.openId = null; render();
+  if (expirou) toast('Sua sessão expirou. Entre de novo.');
+}
+const NOMES_PADRAO = ['IPTU','Condomínio','Seguro incêndio','Taxa de administração','Manutenção','Energia','Água','Internet'];
+let nomesCusto = [];
+function nomesSalvos() {
+  const vistos = new Set(), out = [];
+  [...NOMES_PADRAO, ...nomesCusto, ...state.props.flatMap(p => (p.custos || []).map(c => c.nome))].forEach(n => { const k = String(n || '').trim().toLowerCase(); if (k && !vistos.has(k)) { vistos.add(k); out.push(String(n).trim()); } });
+  return out;
+}
+function lembrarNome(n) {
+  if (nomesSalvos().some(x => x.toLowerCase() === n.toLowerCase())) return;
+  nomesCusto.push(n);
+  api('ajuste', {chave: 'nomesCusto', valor: nomesCusto}).catch(() => {});
+}
+const encargosInquilino = p => (p.custos || []).filter(c => c.pagoPor === 'inquilino').reduce((s, c) => s + (c.freq === 'mensal' ? c.valor : c.freq === 'anual' ? c.valor / 12 : 0), 0);
+const imgFoto = (k, alt) => `<img data-foto="${esc(k)}" ${urls[k] ? `src="${esc(urls[k])}"` : ''} alt="${esc(alt)}">`;
+
+/* ---------- dados ---------- */
+function salvar(p) {
+  p.atualizadoEm = new Date().toISOString();
+  const i = state.props.findIndex(x => x.id === p.id);
+  if (i >= 0) state.props[i] = p; else state.props.push(p);
+  render();
+  const data = clone(p); pend++; sincronia();
+  filas[p.id] = (filas[p.id] || Promise.resolve()).then(() => api('salvar', {imovel: data})).catch(e => {
+    if (e.message !== 'sessao') toast(e.message === 'grande' ? 'Este imóvel tem informação demais para salvar. Apague anotações antigas.' : 'Não foi possível salvar. Verifique a conexão e tente de novo.');
+  }).then(() => { pend--; sincronia(); });
+  return filas[p.id];
+}
+const getP = id => state.props.find(p => p.id === id);
+const editavel = id => { const p = getP(id); return p ? clone(p) : null; };
+const custoMensal = p => (p.custos || []).filter(c => c.pagoPor !== 'inquilino').reduce((s, c) => s + (c.freq === 'mensal' ? c.valor : c.freq === 'anual' ? c.valor / 12 : 0), 0);
+const capaDe = p => { const f = p.fotos || []; return f.find(x => x.id === p.capa) || f[0]; };
+const endCurto = p => { const e = p.endereco || {}; return [[e.rua, e.numero].filter(Boolean).join(', '), e.bairro, e.cidade].filter(Boolean).join(' · '); };
+const endLongo = p => { const e = p.endereco || {}; return [[e.rua, e.numero].filter(Boolean).join(', '), e.complemento, e.bairro, [e.cidade, e.uf].filter(Boolean).join(' - '), e.cep].filter(Boolean).join(', '); };
+function visitasDe(p) { const out = []; (p.interessados || []).forEach(l => (l.visitas || []).forEach(v => out.push({p, l, v}))); return out; }
+const todasVisitas = () => state.props.flatMap(visitasDe).sort((a, b) => (a.v.data + (a.v.hora || '')).localeCompare(b.v.data + (b.v.hora || '')));
+const proxVisita = p => visitasDe(p).filter(x => x.v.status === 'agendada' && dias(x.v.data) >= 0).sort((a, b) => (a.v.data + a.v.hora).localeCompare(b.v.data + b.v.hora))[0];
+function novoCodigo(tipo) {
+  const pre = tipo === 'comercial' ? 'COM' : 'RES';
+  const max = state.props.filter(p => (p.codigo || '').startsWith(pre)).reduce((m, p) => Math.max(m, parseInt(p.codigo.split('-')[1]) || 0), 0);
+  return pre + '-' + String(max + 1).padStart(2, '0');
+}
+
+/* ---------- render ---------- */
+function render() {
+  document.body.classList.toggle('fora', !state.logado);
+  if (!state.logado) { $('#banner').innerHTML = ''; $('#fab').hidden = true; $('#app').innerHTML = loginHTML(); return; }
+  const foco = document.activeElement && document.activeElement.id === 'q' ? document.activeElement.selectionStart : null;
+  document.getElementById('nav-imoveis').setAttribute('aria-current', state.view === 'imoveis');
+  document.getElementById('nav-agenda').setAttribute('aria-current', state.view === 'agenda');
+  $('#banner').innerHTML = state.erro ? '<div class="banner">Sem conexão com a planilha. <button type="button" class="link" data-act="recarregar" style="color:inherit">Tentar de novo</button></div>' : '';
+  const p = state.openId && getP(state.openId);
+  $('#fab').hidden = !!p || state.view !== 'imoveis' || !state.loaded || (state.erro && !state.props.length);
+  $('#app').innerHTML = !state.loaded ? '<div class="hero"><h1>Abrindo sua carteira…</h1></div>'
+    : state.erro && !state.props.length ? '<div class="hero"><h1>Não consegui abrir seus dados</h1><p class="end">Confira a internet e toque em Tentar de novo.</p></div>'
+    : p ? vDetalhe(p) : (state.view === 'agenda' ? vAgenda() : vImoveis()) + '<div class="rodape"><button type="button" class="btn sm ghost" data-act="backup">Baixar backup</button><button type="button" class="btn sm ghost" data-act="sair">Sair</button></div>';
+  hidratar();
+  if (foco !== null) { const q = $('#q'); if (q) { q.focus(); q.setSelectionRange(foco, foco); } }
+}
+
+function vImoveis() {
+  const ps = state.props, n = ps.length;
+  if (!n) return `<section class="hero"><h1>Sua carteira <em>começa aqui</em></h1></section>
+    <div class="vazio"><span class="placa s-disponivel">ALUGA-SE</span><h2>Nenhum imóvel cadastrado</h2>
+    <p>Cadastre a primeira sala ou casa com fotos, endereço, custos e a lista de interessados.</p>
+    <button type="button" class="btn acc" data-act="novo-imovel">Cadastrar primeiro imóvel</button></div>`;
+  const cont = k => ps.filter(p => p.status === k).length;
+  const alug = ps.filter(p => p.status === 'alugado');
+  const receita = alug.reduce((s, p) => s + ((p.inquilino && p.inquilino.valor) || p.aluguel || 0), 0);
+  const parado = ps.filter(p => p.status !== 'alugado').reduce((s, p) => s + (p.aluguel || 0), 0);
+  const custos = ps.reduce((s, p) => s + custoMensal(p), 0);
+  const prox = todasVisitas().filter(x => x.v.status === 'agendada' && dias(x.v.data) >= 0);
+  const ordem = ['alugado','reservado','disponivel','reforma'];
+  const regua = [...ps].sort((a, b) => ordem.indexOf(a.status) - ordem.indexOf(b.status));
+  return `<section class="hero">
+    <h1><em>${alug.length}</em> de ${n} ${n === 1 ? 'imóvel alugado' : 'imóveis alugados'}</h1>
+    <div class="regua" aria-label="Ocupação da carteira">${regua.map(p => `<button type="button" class="s-${esc(p.status)}" data-act="abrir" data-id="${esc(p.id)}" title="${esc(p.nome)} · ${esc(STATUS[p.status] ? STATUS[p.status][0] : '')}" aria-label="${esc(p.nome)}"></button>`).join('')}</div>
+    <div class="legenda">${ordem.map(k => `<span><b class="s-${k}"></b>${STATUS[k][0]} · ${cont(k)}</span>`).join('')}</div>
+    <div class="stats num">
+      <div class="stat"><small>Entra por mês</small><strong>${brl(receita)}</strong><span>${alug.length} ${alug.length === 1 ? 'contrato ativo' : 'contratos ativos'}</span></div>
+      <div class="stat"><small>Parado por mês</small><strong>${brl(parado)}</strong><span>aluguel dos imóveis vagos</span></div>
+      <div class="stat"><small>Custos por mês</small><strong>${brl(custos)}</strong><span>sobra ${brl(receita - custos)}</span></div>
+      <div class="stat"><small>Visitas marcadas</small><strong>${prox.length}</strong><span>${prox[0] ? 'próxima ' + fData(prox[0].v.data, {day:'2-digit', month:'2-digit'}) + ' ' + esc(prox[0].v.hora || '') : 'nenhuma agendada'}</span></div>
+    </div></section>
+    <div class="tools">
+      <div class="chips">${[['todos','Todos'],['comercial','Comerciais'],['residencial','Residenciais']].map(([k, l]) => `<button type="button" class="chip" data-act="f-tipo" data-v="${k}" aria-pressed="${state.fTipo === k}">${l}</button>`).join('')}</div>
+      <select id="fStatus" aria-label="Filtrar por situação"><option value="todos">Qualquer situação</option>${Object.keys(STATUS).map(k => `<option value="${k}" ${state.fStatus === k ? 'selected' : ''}>${STATUS[k][0]}</option>`).join('')}</select>
+      <input class="search" id="q" type="search" placeholder="Buscar por nome, rua ou bairro" value="${esc(state.q)}" aria-label="Buscar imóvel">
+    </div>
+    <div class="grid" id="grid">${gridHTML()}</div>`;
+}
+function gridHTML() {
+  const q = state.q.trim().toLowerCase();
+  const ps = state.props.filter(p => (state.fTipo === 'todos' || p.tipo === state.fTipo) && (state.fStatus === 'todos' || p.status === state.fStatus)
+    && (!q || (p.nome + ' ' + endLongo(p) + ' ' + (p.codigo || '')).toLowerCase().includes(q)));
+  if (!ps.length) return '<p class="end">Nenhum imóvel com esses filtros.</p>';
+  return ps.map(p => {
+    const c = capaDe(p), nf = (p.fotos || []).length, pv = proxVisita(p), st = STATUS[p.status] || STATUS.disponivel;
+    const ativos = (p.interessados || []).filter(l => !['fechado','desistiu'].includes(l.estagio)).length;
+    const fim = p.status === 'alugado' && p.inquilino && p.inquilino.fim ? dias(p.inquilino.fim) : null;
+    return `<button type="button" class="card" data-act="abrir" data-id="${esc(p.id)}">
+      <div class="foto">${c ? imgFoto(c.t || c.id, '') : 'Sem foto ainda'}
+        <span class="tag">${esc(p.codigo || '')}</span><span class="placa s-${esc(p.status)}">${st[1]}</span>${nf > 1 ? `<span class="nfotos">${nf} fotos</span>` : ''}</div>
+      <div class="card-b"><h3>${esc(p.nome)}</h3><div class="end">${esc(endCurto(p)) || 'Endereço não informado'}</div>
+        <div class="preco num">${brl(p.aluguel)} <small>/mês · ${p.tipo === 'comercial' ? 'Comercial' : 'Residencial'}${p.area ? ' · ' + esc(p.area) + ' m²' : ''}</small></div>
+        ${encargosInquilino(p) ? `<div class="end num">${brl((p.aluguel || 0) + encargosInquilino(p))} com encargos</div>` : ''}
+        <div class="avisos">${ativos ? `<span class="pill info">${ativos} ${ativos === 1 ? 'interessado' : 'interessados'}</span>` : ''}
+          ${pv ? `<span class="pill ok">Visita ${fData(pv.v.data, {day:'2-digit', month:'2-digit'})} ${esc(pv.v.hora || '')}</span>` : ''}
+          ${fim !== null && fim <= 60 ? `<span class="pill ${fim < 0 ? 'bad' : 'warn'}">${fim < 0 ? 'Contrato vencido' : 'Contrato vence em ' + fim + ' dias'}</span>` : ''}</div>
+      </div></button>`;
+  }).join('');
+}
+
+function vDetalhe(p) {
+  const st = p.status, fotos = p.fotos || [], capa = capaDe(p), leads = p.interessados || [];
+  const tabs = [['resumo','Resumo'],['financeiro','Financeiro'],['inquilino','Inquilino'],['interessados','Interessados']];
+  return `<button type="button" class="voltar" data-act="voltar">‹ Todos os imóveis</button>
+    <div class="galeria">${fotos.map((f, i) => `<button type="button" class="ft" data-act="foto" data-i="${i}">${imgFoto(f.t || f.id, 'Foto ' + (i + 1))}${capa && capa.id === f.id ? '<span class="capa">Capa</span>' : ''}</button>`).join('')}
+      ${podeFoto() ? `<button type="button" class="addfoto" data-act="add-fotos"><span><b>+</b>Adicionar fotos</span></button>` : (fotos.length ? '' : '<div class="addfoto"><span>Fotos indisponíveis nesta visualização</span></div>')}</div>
+    <div class="dhead"><div class="linha"><span class="tag inline">${esc(p.codigo || '')}</span><span class="pill">${p.tipo === 'comercial' ? 'Comercial' : 'Residencial'}</span></div>
+      <h1>${esc(p.nome)}</h1><div class="end">${esc(endLongo(p)) || 'Endereço não informado'}</div>
+      <div class="seg" role="group" aria-label="Situação do imóvel">${Object.keys(STATUS).map(k => `<button type="button" class="${st === k ? 's-' + k : ''}" data-act="status" data-v="${k}" aria-pressed="${st === k}">${STATUS[k][0]}</button>`).join('')}</div></div>
+    <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button type="button" role="tab" data-act="tab" data-v="${k}" aria-selected="${state.tab === k}">${l}${k === 'interessados' && leads.length ? `<sup>${leads.length}</sup>` : ''}</button>`).join('')}</div>
+    ${state.tab === 'financeiro' ? tFinanceiro(p) : state.tab === 'inquilino' ? tInquilino(p) : state.tab === 'interessados' ? tInteressados(p) : tResumo(p)}`;
+}
+const linha = (k, v) => v || v === 0 ? `<dt>${k}</dt><dd>${esc(v)}</dd>` : '';
+function tResumo(p) {
+  const mapa = endLongo(p) ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(endLongo(p)) : '';
+  return `<div class="painel duas"><section class="bloco"><h2>Dados do imóvel <button type="button" class="btn sm ghost" data-act="editar-imovel">Editar</button></h2>
+    <dl class="dl num">${linha('Aluguel pedido', brl(p.aluguel))}${linha('Área', p.area ? p.area + ' m²' : '')}${linha(p.tipo === 'comercial' ? 'Salas' : 'Quartos', p.quartos)}${linha('Banheiros', p.banheiros)}${linha('Vagas', p.vagas)}${linha('Cadastrado em', fData((p.criadoEm || '').slice(0, 10)))}</dl>
+    ${p.descricao ? `<p class="nota">${esc(p.descricao)}</p>` : ''}</section>
+    <section class="bloco"><h2>Endereço</h2><p style="margin:0">${esc(endLongo(p)) || 'Ainda não informado.'}</p>
+      ${mapa ? `<a class="link" href="${esc(mapa)}" target="_blank" rel="noopener">Abrir no mapa</a>` : ''}
+      <button type="button" class="btn danger sm" data-act="excluir-imovel" style="justify-self:start;margin-top:8px">Excluir este imóvel</button></section></div>`;
+}
+function tFinanceiro(p) {
+  const cs = p.custos || [], alugado = p.status === 'alugado';
+  const entra = alugado ? ((p.inquilino && p.inquilino.valor) || p.aluguel || 0) : 0, sai = custoMensal(p), liq = entra - sai;
+  const unicos = cs.filter(c => c.freq === 'unico' && c.pagoPor !== 'inquilino').reduce((s, c) => s + c.valor, 0);
+  const enc = encargosInquilino(p), base = (alugado && p.inquilino && p.inquilino.valor) || p.aluguel || 0;
+  return `<div class="painel duas"><section class="bloco"><h2>Custos <button type="button" class="btn sm acc" data-act="add-custo">+ Custo</button></h2>
+    ${cs.length ? `<ul class="lista num">${cs.map(c => `<li><div class="g"><strong>${esc(c.nome)}</strong><small>${FREQ[c.freq] || ''} · pago ${c.pagoPor === 'inquilino' ? 'pelo inquilino' : 'por você'}</small></div><strong>${brl(c.valor)}</strong><button type="button" class="icon" data-act="editar-custo" data-id="${esc(c.id)}" aria-label="Editar ${esc(c.nome)}">✎</button></li>`).join('')}</ul>`
+      : '<p class="end">Cadastre IPTU, condomínio, seguro, manutenção e o que mais pesar neste imóvel.</p>'}</section>
+    <section class="bloco"><h2>Resultado do mês</h2><dl class="dl num">${linha('Aluguel ' + (alugado ? 'recebido' : 'pedido (vago)'), brl(alugado ? entra : p.aluguel))}${linha('Seus custos mensais', brl(sai))}${unicos ? linha('Gastos pontuais', brl(unicos)) : ''}${linha('Custo por ano', brl(sai * 12))}</dl>
+      <div class="total num"><span>${alugado ? 'Sobra por mês' : 'Custa por mês vago'}</span><strong class="${liq >= 0 ? 'pos' : 'neg'}">${brl(liq)}</strong></div>
+      ${enc ? `<div class="total num"><span>Mensalidade do inquilino<small class="end" style="display:block;font-weight:400">aluguel + encargos pagos por ele</small></span><strong>${brl(base + enc)}</strong></div>` : ''}
+      ${!alugado && p.aluguel ? `<p class="end">Cada mês vago deixa de entrar ${brl(p.aluguel)} e ainda custa ${brl(sai)}.</p>` : ''}</section></div>`;
+}
+function contatoHTML(tel, email) {
+  const d = String(tel || '').replace(/\D/g, ''), wa = d.length >= 10 ? 'https://wa.me/' + (d.length <= 11 ? '55' : '') + d : '';
+  return `<div class="contatos">${tel ? `<span class="pill num">${esc(tel)}</span>` : ''}${wa ? `<a class="link" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${email ? `<span class="pill">${esc(email)}</span>` : ''}</div>`;
+}
+function tInquilino(p) {
+  const i = p.inquilino;
+  if (!i || !i.nome) return `<section class="bloco"><h2>Inquilino</h2><p class="end">Nenhum inquilino cadastrado. Quando fechar o contrato, registre aqui os dados e as datas.</p><button type="button" class="btn acc" data-act="editar-inquilino" style="justify-self:start">Cadastrar inquilino</button></section>`;
+  const f = i.fim ? dias(i.fim) : null;
+  return `<section class="bloco"><h2>${esc(i.nome)} <button type="button" class="btn sm ghost" data-act="editar-inquilino">Editar</button></h2>
+    ${contatoHTML(i.telefone, i.email)}
+    ${f !== null && f <= 60 ? `<span class="pill ${f < 0 ? 'bad' : 'warn'}" style="justify-self:start">${f < 0 ? 'Contrato venceu há ' + (-f) + ' dias' : 'Contrato vence em ' + f + ' dias'}</span>` : ''}
+    <dl class="dl num">${linha('Aluguel combinado', brl(i.valor || p.aluguel))}${linha('Vencimento', i.vencimento ? 'todo dia ' + i.vencimento : '')}${linha('Início do contrato', fData(i.inicio))}${linha('Fim do contrato', fData(i.fim))}${linha('Garantia', i.garantia)}</dl>
+    ${i.notas ? `<p class="nota">${esc(i.notas)}</p>` : ''}
+    <button type="button" class="btn danger sm" data-act="encerrar" style="justify-self:start">Encerrar locação</button></section>`;
+}
+function tInteressados(p) {
+  const ls = p.interessados || [];
+  return `<section class="bloco"><h2>Quem tem interesse <button type="button" class="btn sm acc" data-act="add-lead">+ Interessado</button></h2>
+    ${ls.length ? ls.map(l => { const vs = [...(l.visitas || [])].sort((a, b) => (b.data + b.hora).localeCompare(a.data + a.hora));
+      return `<article class="lead"><div class="lead-h"><div><h3>${esc(l.nome)}</h3><small class="end">${esc(l.origem || 'Origem não informada')} · desde ${fData((l.criadoEm || '').slice(0, 10))}</small></div>
+        <button type="button" class="icon" data-act="editar-lead" data-id="${esc(l.id)}" aria-label="Editar ${esc(l.nome)}">✎</button></div>
+        ${contatoHTML(l.telefone, l.email)}
+        <label class="f" style="max-width:240px">Etapa<select data-ch="estagio" data-id="${esc(l.id)}" id="est-${esc(l.id)}">${Object.keys(ESTAGIO).map(k => `<option value="${k}" ${l.estagio === k ? 'selected' : ''}>${ESTAGIO[k]}</option>`).join('')}</select></label>
+        ${l.notas ? `<p class="nota">${esc(l.notas)}</p>` : ''}
+        ${vs.map(v => visitaHTML(l, v)).join('')}
+        <div class="contatos"><button type="button" class="btn sm ghost" data-act="add-visita" data-id="${esc(l.id)}">+ Agendar visita</button>
+          ${l.estagio === 'fechado' && !(p.inquilino && p.inquilino.nome) ? `<button type="button" class="btn sm" data-act="lead-inquilino" data-id="${esc(l.id)}">Tornar inquilino</button>` : ''}</div></article>`; }).join('')
+      : '<p class="end">Anote aqui cada pessoa que perguntar pelo imóvel, com contato e as visitas combinadas.</p>'}</section>`;
+}
+function visitaHTML(l, v, comImovel) {
+  const atras = v.status === 'agendada' && dias(v.data) < 0, cls = {realizada:'ok', cancelada:'bad', faltou:'bad', agendada: atras ? 'warn' : 'info'}[v.status] || '';
+  return `<div class="visita"><div class="g num"><strong>${fData(v.data, {weekday:'short', day:'2-digit', month:'2-digit'})}${v.hora ? ' às ' + esc(v.hora) : ''}</strong>${v.obs ? `<small class="end" style="display:block">${esc(v.obs)}</small>` : ''}</div>
+    <span class="pill ${cls}">${atras ? 'Faltou registrar' : VSTATUS[v.status] || ''}</span>
+    ${v.status === 'agendada' ? `<button type="button" class="btn sm ghost" data-act="visita-ok" data-id="${esc(l.id)}" data-v="${esc(v.id)}">Aconteceu</button>` : ''}
+    <button type="button" class="icon" data-act="editar-visita" data-id="${esc(l.id)}" data-v="${esc(v.id)}" aria-label="Editar visita">✎</button></div>`;
+}
+function vAgenda() {
+  const all = todasVisitas(), fut = all.filter(x => x.v.status === 'agendada' && dias(x.v.data) >= 0), pend = all.filter(x => x.v.status === 'agendada' && dias(x.v.data) < 0);
+  const hist = all.filter(x => x.v.status !== 'agendada').reverse().slice(0, 12);
+  const item = x => `<div class="ag"><div class="hora num">${esc(x.v.hora || '--:--')}</div><div class="g"><strong>${esc(x.l.nome)}</strong><div class="end">${esc(x.p.nome)} · ${esc(endCurto(x.p))}</div>${contatoHTML(x.l.telefone)}</div>
+    <span class="pill">${VSTATUS[x.v.status] || ''}</span><button type="button" class="btn sm ghost" data-act="abrir-leads" data-id="${esc(x.p.id)}">Ver imóvel</button></div>`;
+  const grupos = lista => { const g = {}; lista.forEach(x => (g[x.v.data] = g[x.v.data] || []).push(x)); return Object.keys(g).map(d => `<div class="dia"><h2>${esc(fDia(d))}</h2>${g[d].map(item).join('')}</div>`).join(''); };
+  return `<section class="hero"><h1><em>${fut.length}</em> ${fut.length === 1 ? 'visita marcada' : 'visitas marcadas'}</h1></section>
+    ${pend.length ? `<div class="dia"><h2>Já passaram e falta registrar o resultado</h2>${pend.map(item).join('')}</div>` : ''}
+    ${fut.length ? grupos(fut) : '<div class="vazio"><h2>Agenda livre</h2><p>As visitas aparecem aqui quando você agenda pela aba Interessados de cada imóvel.</p></div>'}
+    ${hist.length ? `<div class="dia" style="margin-top:28px"><h2>Últimas visitas</h2>${hist.map(item).join('')}</div>` : ''}`;
+}
+
+/* ---------- folha de formulário ---------- */
+let sheetCb = null;
+const campo = (l, n, v, cls, attrs) => `<label class="f ${cls || ''}">${l}<input id="f-${n}" name="${n}" value="${esc(v ?? '')}" ${attrs || ''}></label>`;
+const sel = (l, n, opts, v, cls) => `<label class="f ${cls || ''}">${l}<select id="f-${n}" name="${n}">${Object.keys(opts).map(k => `<option value="${k}" ${k === v ? 'selected' : ''}>${esc(Array.isArray(opts[k]) ? opts[k][0] : opts[k])}</option>`).join('')}</select></label>`;
+const area = (l, n, v) => `<label class="f">${l}<textarea id="f-${n}" name="${n}">${esc(v ?? '')}</textarea></label>`;
+function abrirSheet({titulo, corpo, ok, onOk, excluir}) {
+  $('#sheetForm').innerHTML = `<h2>${esc(titulo)}</h2><div class="campos">${corpo}</div><div class="sheet-acoes">
+    ${excluir ? `<button type="button" class="btn danger esq" data-act="sheet-excluir">${esc(excluir.rotulo)}</button>` : ''}
+    <button type="button" class="btn ghost" data-act="fechar-sheet">Cancelar</button>${ok ? `<button type="submit" class="btn acc">${esc(ok)}</button>` : ''}</div>`;
+  sheetCb = {onOk, excluir};
+  $('#sheet').hidden = false;
+  const f = $('#sheetForm input, #sheetForm select'); if (f && matchMedia('(min-width:620px)').matches) f.focus();
+}
+function fecharSheet() { $('#sheet').hidden = true; sheetCb = null; }
+function confirmar(titulo, texto, rotulo) {
+  return new Promise(res => {
+    abrirSheet({titulo, corpo: `<p class="f" style="font-size:15px;font-weight:400">${esc(texto)}</p>`, excluir: {rotulo, fn: () => res(true)}});
+  });
+}
+let toastT;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 3200); }
+
+function formImovel(p) {
+  const e = (p && p.endereco) || {}, novo = !p;
+  abrirSheet({titulo: novo ? 'Novo imóvel' : 'Editar imóvel', ok: novo ? 'Cadastrar imóvel' : 'Salvar', corpo:
+    campo('Nome ou apelido', 'nome', p && p.nome, '', 'required placeholder="Ex.: Sala 12, Ed. Pacaembu"') +
+    sel('Tipo', 'tipo', {comercial:'Comercial', residencial:'Residencial'}, p ? p.tipo : 'comercial', 'c3') +
+    sel('Situação', 'status', STATUS, p ? p.status : 'disponivel', 'c3') +
+    campo('Aluguel pedido (R$)', 'aluguel', numIn(p && p.aluguel), 'c3', 'inputmode="decimal" placeholder="0,00"') +
+    campo('Área (m²)', 'area', p && p.area, 'c3', 'inputmode="decimal"') +
+    campo('Quartos / salas', 'quartos', p && p.quartos, 'c2', 'inputmode="numeric"') + campo('Banheiros', 'banheiros', p && p.banheiros, 'c2', 'inputmode="numeric"') + campo('Vagas', 'vagas', p && p.vagas, 'c2', 'inputmode="numeric"') +
+    campo('Rua', 'rua', e.rua, 'c4') + campo('Número', 'numero', e.numero, 'c2') +
+    campo('Complemento', 'complemento', e.complemento, 'c3') + campo('Bairro', 'bairro', e.bairro, 'c3') +
+    campo('Cidade', 'cidade', e.cidade, 'c3') + campo('UF', 'uf', e.uf, 'c2', 'maxlength="2"') + campo('CEP', 'cep', e.cep, 'c2', 'inputmode="numeric"') +
+    area('Descrição e observações', 'descricao', p && p.descricao),
+    onOk: d => {
+      if (!d.nome.trim()) { toast('Dê um nome ao imóvel.'); return false; }
+      const x = p ? editavel(p.id) : {id: uid(), criadoEm: new Date().toISOString(), fotos: [], custos: [], interessados: [], codigo: novoCodigo(d.tipo)};
+      if (p && p.tipo !== d.tipo) x.codigo = novoCodigo(d.tipo);
+      Object.assign(x, {nome: d.nome.trim(), tipo: d.tipo, status: d.status, aluguel: parseBRL(d.aluguel), area: d.area.trim(), quartos: d.quartos.trim(), banheiros: d.banheiros.trim(), vagas: d.vagas.trim(), descricao: d.descricao.trim(),
+        endereco: {rua: d.rua.trim(), numero: d.numero.trim(), complemento: d.complemento.trim(), bairro: d.bairro.trim(), cidade: d.cidade.trim(), uf: d.uf.trim().toUpperCase(), cep: d.cep.trim()}});
+      if (novo) { state.openId = x.id; state.tab = 'resumo'; scrollTo(0, 0); }
+      salvar(x); toast(novo ? 'Imóvel cadastrado. Agora adicione as fotos.' : 'Imóvel atualizado.');
+    }});
+}
+function formCusto(pid, cid) {
+  const p = getP(pid), c = (p.custos || []).find(x => x.id === cid);
+  abrirSheet({titulo: c ? 'Editar custo' : 'Novo custo', ok: 'Salvar', excluir: c && {rotulo: 'Excluir', fn: () => { const x = editavel(pid); x.custos = x.custos.filter(k => k.id !== cid); salvar(x); }}, corpo:
+    `<label class="f">Nome do custo<input id="f-nome" name="nome" value="${esc(c ? c.nome : '')}" required placeholder="Digite um nome novo ou toque em um salvo" autocomplete="off"></label>
+    <div class="f">Nomes salvos<div class="chips">${nomesSalvos().map(n => `<button type="button" class="chip" data-act="nome-custo" data-v="${esc(n)}" aria-pressed="${!!c && c.nome.toLowerCase() === n.toLowerCase()}">${esc(n)}</button>`).join('')}</div></div>` +
+    campo('Valor (R$)', 'valor', numIn(c && c.valor), 'c3', 'inputmode="decimal" required placeholder="0,00"') + sel('Frequência', 'freq', {mensal:'Todo mês', anual:'Uma vez por ano', unico:'Gasto único'}, c ? c.freq : 'mensal', 'c3') +
+    sel('Quem paga', 'pagoPor', {proprietario:'Eu (proprietário)', inquilino:'O inquilino'}, c ? c.pagoPor : 'proprietario'),
+    onOk: d => { if (!d.nome.trim()) { toast('Diga qual é o custo.'); return false; }
+      lembrarNome(d.nome.trim());
+      const x = editavel(pid), n = {id: c ? c.id : uid(), nome: d.nome.trim(), valor: parseBRL(d.valor), freq: d.freq, pagoPor: d.pagoPor};
+      x.custos = x.custos || []; const i = x.custos.findIndex(k => k.id === n.id); if (i >= 0) x.custos[i] = n; else x.custos.push(n); salvar(x); }});
+}
+function formInquilino(pid, base) {
+  const p = getP(pid), i = base || p.inquilino || {};
+  abrirSheet({titulo: 'Inquilino e contrato', ok: 'Salvar', corpo:
+    campo('Nome', 'nome', i.nome, '', 'required') + campo('Telefone / WhatsApp', 'telefone', i.telefone, 'c3', 'inputmode="tel"') + campo('E-mail', 'email', i.email, 'c3', 'inputmode="email"') +
+    campo('Aluguel combinado (R$)', 'valor', numIn(i.valor || p.aluguel), 'c3', 'inputmode="decimal"') + campo('Dia do vencimento', 'vencimento', i.vencimento, 'c3', 'inputmode="numeric" placeholder="Ex.: 10"') +
+    campo('Início do contrato', 'inicio', i.inicio, 'c3', 'type="date"') + campo('Fim do contrato', 'fim', i.fim, 'c3', 'type="date"') +
+    campo('Garantia', 'garantia', i.garantia, '', 'placeholder="Caução, fiador, seguro fiança…"') + area('Observações', 'notas', i.notas),
+    onOk: d => { if (!d.nome.trim()) { toast('Informe o nome do inquilino.'); return false; }
+      const x = editavel(pid); x.inquilino = {nome: d.nome.trim(), telefone: d.telefone.trim(), email: d.email.trim(), valor: parseBRL(d.valor), vencimento: d.vencimento.trim(), inicio: d.inicio, fim: d.fim, garantia: d.garantia.trim(), notas: d.notas.trim()};
+      x.status = 'alugado'; state.tab = 'inquilino'; salvar(x); toast('Inquilino salvo. Imóvel marcado como alugado.'); }});
+}
+function formLead(pid, lid) {
+  const p = getP(pid), l = (p.interessados || []).find(x => x.id === lid);
+  abrirSheet({titulo: l ? 'Editar interessado' : 'Novo interessado', ok: 'Salvar', excluir: l && {rotulo: 'Excluir', fn: () => { const x = editavel(pid); x.interessados = x.interessados.filter(k => k.id !== lid); salvar(x); }}, corpo:
+    campo('Nome', 'nome', l && l.nome, '', 'required') + campo('Telefone / WhatsApp', 'telefone', l && l.telefone, 'c3', 'inputmode="tel" placeholder="(11) 90000-0000"') + campo('E-mail', 'email', l && l.email, 'c3', 'inputmode="email"') +
+    `<label class="f c3">Como chegou<input id="f-origem" name="origem" list="origens" value="${esc(l ? l.origem : '')}"><datalist id="origens"><option>Indicação</option><option>Placa no imóvel</option><option>WhatsApp</option><option>Instagram</option><option>Portal de imóveis</option><option>Imobiliária</option></datalist></label>` +
+    sel('Etapa', 'estagio', ESTAGIO, l ? l.estagio : 'novo', 'c3') + area('Anotações', 'notas', l && l.notas),
+    onOk: d => { if (!d.nome.trim()) { toast('Informe o nome do interessado.'); return false; }
+      const x = editavel(pid); x.interessados = x.interessados || [];
+      const n = Object.assign(l ? x.interessados.find(k => k.id === lid) : {id: uid(), criadoEm: new Date().toISOString(), visitas: []}, {nome: d.nome.trim(), telefone: d.telefone.trim(), email: d.email.trim(), origem: d.origem.trim(), estagio: d.estagio, notas: d.notas.trim()});
+      if (!l) x.interessados.unshift(n); salvar(x); }});
+}
+function formVisita(pid, lid, vid) {
+  const p = getP(pid), l = p.interessados.find(x => x.id === lid), v = (l.visitas || []).find(x => x.id === vid);
+  abrirSheet({titulo: v ? 'Editar visita' : 'Agendar visita com ' + l.nome, ok: 'Salvar', excluir: v && {rotulo: 'Excluir', fn: () => { const x = editavel(pid), ll = x.interessados.find(k => k.id === lid); ll.visitas = ll.visitas.filter(k => k.id !== vid); salvar(x); }}, corpo:
+    campo('Data', 'data', v ? v.data : hojeStr(), 'c3', 'type="date" required') + campo('Horário', 'hora', v ? v.hora : '', 'c3', 'type="time"') +
+    sel('Situação', 'status', VSTATUS, v ? v.status : 'agendada') + area('Observações / retorno da visita', 'obs', v && v.obs),
+    onOk: d => { if (!d.data) { toast('Escolha a data da visita.'); return false; }
+      const x = editavel(pid), ll = x.interessados.find(k => k.id === lid); ll.visitas = ll.visitas || [];
+      const n = {id: v ? v.id : uid(), data: d.data, hora: d.hora, status: d.status, obs: d.obs.trim()};
+      const i = ll.visitas.findIndex(k => k.id === n.id); if (i >= 0) ll.visitas[i] = n; else ll.visitas.push(n);
+      if (!v && ll.estagio === 'novo') ll.estagio = 'visita'; salvar(x); }});
+}
+
+/* ---------- fotos (guardadas no Drive, cópia local em cache) ---------- */
+const podeFoto = () => true;
+let idb = null;
+const idbPronto = new Promise(res => { try { const r = indexedDB.open('carteira-fotos', 1); r.onupgradeneeded = () => r.result.createObjectStore('f'); r.onsuccess = () => { idb = r.result; res(); }; r.onerror = () => res(); } catch (e) { res(); } });
+const idbGet = k => new Promise(res => { if (!idb) return res(null); try { const r = idb.transaction('f').objectStore('f').get(k); r.onsuccess = () => res(r.result || null); r.onerror = () => res(null); } catch (e) { res(null); } });
+const idbPut = (k, b) => { try { if (idb) idb.transaction('f', 'readwrite').objectStore('f').put(b, k); } catch (e) {} };
+const esperas = {}; let lote = [], loteT = null;
+function pedirFoto(k) {
+  if (urls[k]) return Promise.resolve(urls[k]);
+  if (!esperas[k]) { const e = esperas[k] = {}; e.p = new Promise(r => e.ok = r); lote.push(k); clearTimeout(loteT); loteT = setTimeout(buscarLote, 40); }
+  return esperas[k].p;
+}
+function entregar(k, blob) { if (blob) urls[k] = URL.createObjectURL(blob); const e = esperas[k]; delete esperas[k]; if (e) e.ok(urls[k] || ''); }
+async function buscarLote() {
+  const ks = lote; lote = []; await idbPronto; const faltam = [];
+  for (const k of ks) { const b = await idbGet(k); if (b) entregar(k, b); else faltam.push(k); }
+  for (let i = 0; i < faltam.length; i += 6) {
+    const parte = faltam.slice(i, i + 6);
+    try { const r = await api('fotos', {ids: parte});
+      for (const k of parte) { const b64 = r.fotos && r.fotos[k]; if (!b64) { entregar(k, null); continue; }
+        const blob = await (await fetch('data:image/jpeg;base64,' + b64)).blob(); idbPut(k, blob); entregar(k, blob); }
+    } catch (e) { parte.forEach(k => entregar(k, null)); }
+  }
+}
+function hidratar() { document.querySelectorAll('img[data-foto]:not([src])').forEach(im => pedirFoto(im.dataset.foto).then(u => { if (u && im.isConnected) im.src = u; })); }
+async function encolher(file, max, q) {
+  const bmp = await createImageBitmap(file), s = Math.min(1, max / Math.max(bmp.width, bmp.height)), c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s); c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  const b = await new Promise(r => c.toBlob(r, 'image/jpeg', q)); if (!b) throw new Error('imagem'); return b;
+}
+const b64De = blob => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); });
+async function enviarFotos(files) {
+  const pid = state.openId; if (!pid || !files.length) return;
+  const novas = []; let falhas = 0;
+  for (let i = 0; i < files.length; i++) {
+    toast('Enviando foto ' + (i + 1) + ' de ' + files.length + '…');
+    try { const g = await encolher(files[i], 1600, .82), m = await encolher(files[i], 640, .75);
+      const r = await api('upload', {b64: await b64De(g), t64: await b64De(m)});
+      urls[r.id] = URL.createObjectURL(g); urls[r.t] = URL.createObjectURL(m); idbPut(r.id, g); idbPut(r.t, m); novas.push({id: r.id, t: r.t});
+    } catch (e) { falhas++; }
+  }
+  if (novas.length) { const x = editavel(pid); if (!x) return; x.fotos = (x.fotos || []).concat(novas); if (!x.capa) x.capa = x.fotos[0].id; salvar(x); }
+  toast(falhas ? falhas + ' foto(s) não puderam ser enviadas. Tente de novo.' : novas.length + (novas.length === 1 ? ' foto adicionada.' : ' fotos adicionadas.'));
+}
+let lightI = 0;
+function abrirLight(i) {
+  const p = getP(state.openId), fs = p && (p.fotos || []); if (!fs || !fs.length) { $('#light').hidden = true; return; }
+  lightI = (i + fs.length) % fs.length; const f = fs[lightI], im = $('#lightImg'), idx = lightI, rapida = urls[f.id] || urls[f.t || f.id];
+  if (rapida) im.src = rapida; else im.removeAttribute('src');
+  $('#light').hidden = false;
+  pedirFoto(f.id).then(u => { if (u && lightI === idx && !$('#light').hidden) im.src = u; });
+}
+
+/* ---------- eventos ---------- */
+document.addEventListener('click', async ev => {
+  const b = ev.target.closest('[data-act]'); if (!b) return;
+  const a = b.dataset.act, id = b.dataset.id, pid = state.openId;
+  if (a === 'nav') { state.view = b.dataset.v; state.openId = null; try { location.hash = state.view; } catch (e) {} render(); scrollTo(0, 0); }
+  else if (a === 'abrir' || a === 'abrir-leads') { state.openId = id; state.tab = a === 'abrir' ? 'resumo' : 'interessados'; render(); scrollTo(0, 0); }
+  else if (a === 'voltar') { state.openId = null; render(); }
+  else if (a === 'tab') { state.tab = b.dataset.v; render(); }
+  else if (a === 'f-tipo') { state.fTipo = b.dataset.v; render(); }
+  else if (a === 'novo-imovel') formImovel(null);
+  else if (a === 'editar-imovel') formImovel(getP(pid));
+  else if (a === 'status') { const x = editavel(pid); x.status = b.dataset.v; salvar(x); if (x.status === 'alugado' && !(x.inquilino && x.inquilino.nome)) { state.tab = 'inquilino'; render(); toast('Cadastre o inquilino e as datas do contrato.'); } }
+  else if (a === 'add-fotos') $('#fileIn').click();
+  else if (a === 'foto') abrirLight(+b.dataset.i);
+  else if (a === 'light-ant') abrirLight(lightI - 1);
+  else if (a === 'light-prox') abrirLight(lightI + 1);
+  else if (a === 'light-fechar') $('#light').hidden = true;
+  else if (a === 'light-capa') { const x = editavel(pid); x.capa = x.fotos[lightI].id; salvar(x); toast('Capa atualizada.'); }
+  else if (a === 'light-del') { $('#light').hidden = true; if (await confirmar('Excluir esta foto?', 'A foto é apagada de vez e não dá para recuperar.', 'Excluir foto')) {
+      const x = editavel(pid), f = x.fotos.splice(lightI, 1)[0]; if (x.capa === f.id) x.capa = x.fotos[0] ? x.fotos[0].id : null; await salvar(x);
+      api('apagarFotos', {ids: [f.id, f.t].filter(Boolean)}).catch(() => {}); } }
+  else if (a === 'nome-custo') { $('#f-nome').value = b.dataset.v; document.querySelectorAll('[data-act="nome-custo"]').forEach(k => k.setAttribute('aria-pressed', k === b)); const v = $('#f-valor'); if (v) v.focus(); }
+  else if (a === 'add-custo') formCusto(pid);
+  else if (a === 'editar-custo') formCusto(pid, id);
+  else if (a === 'editar-inquilino') formInquilino(pid);
+  else if (a === 'encerrar') { if (await confirmar('Encerrar a locação?', 'Os dados do inquilino são removidos e o imóvel volta a ficar disponível.', 'Encerrar locação')) { const x = editavel(pid); x.inquilino = null; x.status = 'disponivel'; salvar(x); } }
+  else if (a === 'add-lead') formLead(pid);
+  else if (a === 'editar-lead') formLead(pid, id);
+  else if (a === 'add-visita') formVisita(pid, id);
+  else if (a === 'editar-visita') formVisita(pid, id, b.dataset.v);
+  else if (a === 'visita-ok') { const x = editavel(pid), v = x.interessados.find(k => k.id === id).visitas.find(k => k.id === b.dataset.v); v.status = 'realizada'; salvar(x); toast('Visita registrada como realizada.'); }
+  else if (a === 'lead-inquilino') { const l = getP(pid).interessados.find(k => k.id === id); formInquilino(pid, {nome: l.nome, telefone: l.telefone, email: l.email}); }
+  else if (a === 'excluir-imovel') { const p = getP(pid); if (await confirmar('Excluir ' + p.nome + '?', 'Fotos, custos, inquilino e interessados deste imóvel são apagados de vez.', 'Excluir imóvel')) {
+      state.props = state.props.filter(k => k.id !== pid); state.openId = null; render();
+      try { await (filas[pid] || Promise.resolve()); await api('excluir', {id: pid}); } catch (e) { toast('Não foi possível excluir. Tente de novo.'); } } }
+  else if (a === 'sair') sair();
+  else if (a === 'recarregar') carregar();
+  else if (a === 'backup') { const u = URL.createObjectURL(new Blob([JSON.stringify({exportadoEm: new Date().toISOString(), imoveis: state.props}, null, 2)], {type: 'application/json'})); const l = document.createElement('a'); l.href = u; l.download = 'carteira-alugueis-' + hojeStr() + '.json'; document.body.appendChild(l); l.click(); l.remove(); }
+  else if (a === 'fechar-sheet') fecharSheet();
+  else if (a === 'sheet-excluir') { const cb = sheetCb; fecharSheet(); cb && cb.excluir && cb.excluir.fn(); }
+});
+$('#sheetForm').addEventListener('submit', ev => { ev.preventDefault(); if (!sheetCb || !sheetCb.onOk) return; const cb = sheetCb; if (cb.onOk(Object.fromEntries(new FormData(ev.target))) !== false) fecharSheet(); });
+document.addEventListener('input', ev => { if (ev.target.id === 'q') { state.q = ev.target.value; const g = $('#grid'); if (g) g.innerHTML = gridHTML(); } });
+document.addEventListener('change', ev => {
+  const t = ev.target;
+  if (t.id === 'fStatus') { state.fStatus = t.value; render(); }
+  else if (t.id === 'fileIn') { const fs = [...t.files]; t.value = ''; enviarFotos(fs); }
+  else if (t.dataset.ch === 'estagio') { const x = editavel(state.openId); x.interessados.find(k => k.id === t.dataset.id).estagio = t.value; salvar(x); }
+});
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') { if (!$('#light').hidden) $('#light').hidden = true; else if (!$('#sheet').hidden) fecharSheet(); } });
+window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (h === 'agenda' || h === 'imoveis') { state.view = h; state.openId = null; render(); } });
+
+/* ---------- acesso e início ---------- */
+function loginHTML() {
+  return `<section class="login"><span class="placa s-disponivel">ACESSO RESTRITO</span><h1>Carteira de Aluguéis</h1>
+    <form id="loginForm" class="bloco" novalidate>
+      ${API_FIXA ? '' : `<label class="f">Endereço do serviço (Apps Script)<input id="f-url" name="url" inputmode="url" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(ls.get('ca_api'))}"></label>`}
+      <label class="f">Senha<input id="f-senha" name="senha" type="password" autocomplete="current-password" required></label>
+      <button type="submit" class="btn acc" id="loginBtn">Entrar</button><p class="end" id="loginMsg" role="status" style="margin:0"></p></form></section>`;
+}
+document.addEventListener('submit', async ev => {
+  if (ev.target.id !== 'loginForm') return; ev.preventDefault();
+  const d = Object.fromEntries(new FormData(ev.target)), msg = $('#loginMsg'), bt = $('#loginBtn');
+  if (d.url !== undefined) { const u = d.url.trim(); if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(u)) { msg.textContent = 'Cole o endereço do app da web do Apps Script. Ele termina em /exec.'; return; } ls.set('ca_api', u); }
+  if (!d.senha) { msg.textContent = 'Digite a senha.'; return; }
+  bt.disabled = true; msg.textContent = 'Entrando…';
+  try { const r = await api('entrar', {senha: d.senha}); token = r.token; ls.set('ca_token', token); state.logado = true; state.loaded = false; render(); carregar(); }
+  catch (e) { bt.disabled = false; msg.textContent = ({senha: 'Senha incorreta.', bloqueado: 'Muitas tentativas erradas. Aguarde 10 minutos.', configurar: 'Troque a senha padrão no Code.gs e publique uma nova versão.', rede: 'Não consegui falar com o serviço. Confira o endereço e a conexão.'})[e.message] || 'Não foi possível entrar.'; }
+});
+async function carregar(silencioso) {
+  try { const r = await api('listar');
+    state.props = (r.imoveis || []).sort((a, b) => String(a.criadoEm).localeCompare(String(b.criadoEm)));
+    nomesCusto = (((r.ajustes || {}).nomesCusto) || []).filter(n => typeof n === 'string');
+    state.loaded = true; state.erro = false; ultima = Date.now(); }
+  catch (e) { if (e.message === 'sessao') return; if (silencioso) return; state.loaded = true; state.erro = true; }
+  render();
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && state.logado && state.loaded && !pend && $('#sheet').hidden && Date.now() - ultima > 60000) carregar(true); });
+function iniciar() {
+  if (location.hash === '#agenda') state.view = 'agenda';
+  state.logado = !!(token && apiUrl()); render();
+  if (state.logado) carregar();
+}
+iniciar();
+</script>
+</body>
+</html>
