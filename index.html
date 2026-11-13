@@ -80,7 +80,15 @@ img{max-width:100%;display:block}
 .legenda span{display:flex;align-items:center;gap:6px}
 .legenda b{width:10px;height:10px;border-radius:3px;display:inline-block}
 .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
-@media(min-width:760px){.stats{grid-template-columns:repeat(4,1fr)}}
+.stat:last-child{grid-column:span 2}
+@media(min-width:760px){.stats{grid-template-columns:repeat(3,1fr)}.stat:last-child{grid-column:auto}}
+.foto .mos{position:absolute;inset:0;display:grid;gap:4px;padding:6px;background:var(--surface);grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr}
+.foto .mos img{position:static;width:100%;height:100%;min-height:0;object-fit:cover;border-radius:10px;background:var(--sunk)}
+.mos.d3 img:first-child{grid-row:span 2}
+.mos.d2{grid-template-columns:1fr 1fr;grid-template-rows:1fr}
+.mos.d1{grid-template-columns:1fr;grid-template-rows:1fr}
+.detalhe{font-size:13px;color:var(--muted)}
+.venda{font-size:14px;font-weight:700}
 .stat{background:var(--surface);padding:14px 16px;display:grid;gap:2px}
 .stat small{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
 .stat strong{font:700 22px/1.15 var(--display);letter-spacing:-.02em}
@@ -111,7 +119,7 @@ textarea{min-height:92px;resize:vertical}
 .card-b{padding:14px 16px 16px;display:grid;gap:6px}
 .card-b h3{font-size:19px;font-weight:700}
 .end{font-size:14px;color:var(--muted)}
-.preco{font:700 20px/1.2 var(--display)}
+.preco{font:800 27px/1.1 var(--display);letter-spacing:-.02em}
 .preco small{font:500 13px var(--body);color:var(--muted)}
 .avisos{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
 .pill{font-size:12px;font-weight:600;padding:4px 9px;border-radius:999px;background:var(--sunk);color:var(--muted);display:inline-flex;gap:5px;align-items:center}
@@ -142,7 +150,7 @@ textarea{min-height:92px;resize:vertical}
 .dhead{display:grid;gap:10px;padding:16px 0 6px}
 .dhead h1{font-size:clamp(28px,6vw,44px);font-weight:800;line-height:1}
 .dhead .linha{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.tag.inline{position:static;display:inline-block;box-shadow:none;border:1px solid var(--line)}
+.tag.inline{position:relative;top:auto;left:auto;display:inline-block;box-shadow:none;border:1px solid var(--line)}
 .seg{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--sunk);padding:4px;border-radius:14px}
 .seg button{padding:10px 4px;border-radius:10px;font-size:13px;font-weight:700;color:var(--muted)}
 .seg button[aria-pressed="true"]{color:#fff}
@@ -301,7 +309,7 @@ function salvar(p) {
 }
 const getP = id => state.props.find(p => p.id === id);
 const editavel = id => { const p = getP(id); return p ? clone(p) : null; };
-const custoMensal = p => (p.custos || []).filter(c => c.pagoPor !== 'inquilino').reduce((s, c) => s + (c.freq === 'mensal' ? c.valor : c.freq === 'anual' ? c.valor / 12 : 0), 0);
+const custoMensal = p => (p.custos || []).filter(c => p.status !== 'alugado' || c.pagoPor !== 'inquilino').reduce((s, c) => s + (c.freq === 'mensal' ? c.valor : c.freq === 'anual' ? c.valor / 12 : 0), 0);
 const capaDe = p => { const f = p.fotos || []; return f.find(x => x.id === p.capa) || f[0]; };
 const endCurto = p => { const e = p.endereco || {}; return [[e.rua, e.numero].filter(Boolean).join(', '), e.bairro, e.cidade].filter(Boolean).join(' · '); };
 const endLongo = p => { const e = p.endereco || {}; return [[e.rua, e.numero].filter(Boolean).join(', '), e.complemento, e.bairro, [e.cidade, e.uf].filter(Boolean).join(' - '), e.cep].filter(Boolean).join(', '); };
@@ -340,7 +348,7 @@ function vImoveis() {
   const cont = k => ps.filter(p => p.status === k).length;
   const alug = ps.filter(p => p.status === 'alugado');
   const receita = alug.reduce((s, p) => s + ((p.inquilino && p.inquilino.valor) || p.aluguel || 0), 0);
-  const parado = ps.filter(p => p.status !== 'alugado').reduce((s, p) => s + (p.aluguel || 0), 0);
+  const parado = ps.filter(p => p.status !== 'alugado').reduce((s, p) => s + custoMensal(p), 0);
   const custos = ps.reduce((s, p) => s + custoMensal(p), 0);
   const prox = todasVisitas().filter(x => x.v.status === 'agendada' && dias(x.v.data) >= 0);
   const ordem = ['alugado','reservado','disponivel','reforma'];
@@ -351,20 +359,36 @@ function vImoveis() {
     <div class="legenda">${ordem.map(k => `<span><b class="s-${k}"></b>${STATUS[k][0]} · ${cont(k)}</span>`).join('')}</div>
     <div class="stats num">
       <div class="stat"><small>Entra por mês</small><strong>${brl(receita)}</strong><span>${alug.length} ${alug.length === 1 ? 'contrato ativo' : 'contratos ativos'}</span></div>
-      <div class="stat"><small>Parado por mês</small><strong>${brl(parado)}</strong><span>aluguel dos imóveis vagos</span></div>
-      <div class="stat"><small>Custos por mês</small><strong>${brl(custos)}</strong><span>sobra ${brl(receita - custos)}</span></div>
+      <div class="stat"><small>Parado por mês</small><strong>${brl(parado)}</strong><span>custos dos imóveis ainda não alugados</span></div>
       <div class="stat"><small>Visitas marcadas</small><strong>${prox.length}</strong><span>${prox[0] ? 'próxima ' + fData(prox[0].v.data, {day:'2-digit', month:'2-digit'}) + ' ' + esc(prox[0].v.hora || '') : 'nenhuma agendada'}</span></div>
     </div></section>
     <div class="tools">
-      <div class="chips">${[['todos','Todos'],['comercial','Comerciais'],['residencial','Residenciais']].map(([k, l]) => `<button type="button" class="chip" data-act="f-tipo" data-v="${k}" aria-pressed="${state.fTipo === k}">${l}</button>`).join('')}</div>
+      <div class="chips">${[['todos','Todos'],['comercial','Comerciais'],['residencial','Residenciais'],['venda','À venda']].map(([k, l]) => `<button type="button" class="chip" data-act="f-tipo" data-v="${k}" aria-pressed="${state.fTipo === k}">${l}</button>`).join('')}</div>
       <select id="fStatus" aria-label="Filtrar por situação"><option value="todos">Qualquer situação</option>${Object.keys(STATUS).map(k => `<option value="${k}" ${state.fStatus === k ? 'selected' : ''}>${STATUS[k][0]}</option>`).join('')}</select>
       <input class="search" id="q" type="search" placeholder="Buscar por nome, rua ou bairro" value="${esc(state.q)}" aria-label="Buscar imóvel">
     </div>
     <div class="grid" id="grid">${gridHTML()}</div>`;
 }
+const placaTxt = p => p.status === 'disponivel' ? ({venda: 'VENDE-SE', ambos: 'ALUGA-SE · VENDE-SE'}[p.finalidade] || 'ALUGA-SE') : (STATUS[p.status] || STATUS.disponivel)[1];
+const temVenda = p => (p.finalidade === 'venda' || p.finalidade === 'ambos') && p.venda > 0;
+function mosaico(p) {
+  const c = capaDe(p); if (!c) return 'Sem foto ainda';
+  const tres = [c].concat((p.fotos || []).filter(f => f.id !== c.id)).slice(0, 3);
+  return `<div class="mos d${tres.length}">${tres.map(f => imgFoto(f.t || f.id, '')).join('')}</div>`;
+}
+function precoHTML(p) {
+  const mens = c => c.freq === 'anual' ? c.valor / 12 : c.valor, enc = (p.custos || []).filter(c => c.pagoPor === 'inquilino' && c.freq !== 'unico');
+  const total = (p.aluguel || 0) + enc.reduce((s, c) => s + mens(c), 0);
+  const tipo = (p.tipo === 'comercial' ? 'Comercial' : 'Residencial') + (p.area ? ' · ' + esc(p.area) + ' m²' : '');
+  const topo = p.finalidade === 'venda' ? `<div class="preco num">${brl(p.venda)} <small>venda</small></div>`
+    : `<div class="preco num">${brl(total)} <small>/mês${enc.length ? ' no total' : ''}</small></div>
+        ${enc.length ? `<div class="detalhe num">${[brl(p.aluguel) + ' aluguel'].concat(enc.map(c => brl(mens(c)) + ' ' + esc(c.nome))).join(' · ')}</div>` : ''}
+        ${temVenda(p) ? `<div class="venda num">Venda ${brl(p.venda)}</div>` : ''}`;
+  return topo + `<div class="end">${tipo}</div>`;
+}
 function gridHTML() {
   const q = state.q.trim().toLowerCase();
-  const ps = state.props.filter(p => (state.fTipo === 'todos' || p.tipo === state.fTipo) && (state.fStatus === 'todos' || p.status === state.fStatus)
+  const ps = state.props.filter(p => (state.fTipo === 'todos' || (state.fTipo === 'venda' ? ['venda', 'ambos'].includes(p.finalidade) : p.tipo === state.fTipo)) && (state.fStatus === 'todos' || p.status === state.fStatus)
     && (!q || (p.nome + ' ' + endLongo(p) + ' ' + (p.codigo || '')).toLowerCase().includes(q)));
   if (!ps.length) return '<p class="end">Nenhum imóvel com esses filtros.</p>';
   return ps.map(p => {
@@ -372,11 +396,10 @@ function gridHTML() {
     const ativos = (p.interessados || []).filter(l => !['fechado','desistiu'].includes(l.estagio)).length;
     const fim = p.status === 'alugado' && p.inquilino && p.inquilino.fim ? dias(p.inquilino.fim) : null;
     return `<button type="button" class="card" data-act="abrir" data-id="${esc(p.id)}">
-      <div class="foto">${c ? imgFoto(c.t || c.id, '') : 'Sem foto ainda'}
-        <span class="tag">${esc(p.codigo || '')}</span><span class="placa s-${esc(p.status)}">${st[1]}</span>${nf > 1 ? `<span class="nfotos">${nf} fotos</span>` : ''}</div>
+      <div class="foto">${mosaico(p)}
+        <span class="tag">${esc(p.codigo || '')}</span><span class="placa s-${esc(p.status)}">${placaTxt(p)}</span>${nf > 3 ? `<span class="nfotos">${nf} fotos</span>` : ''}</div>
       <div class="card-b"><h3>${esc(p.nome)}</h3><div class="end">${esc(endCurto(p)) || 'Endereço não informado'}</div>
-        <div class="preco num">${brl(p.aluguel)} <small>/mês · ${p.tipo === 'comercial' ? 'Comercial' : 'Residencial'}${p.area ? ' · ' + esc(p.area) + ' m²' : ''}</small></div>
-        ${encargosInquilino(p) ? `<div class="end num">${brl((p.aluguel || 0) + encargosInquilino(p))} com encargos</div>` : ''}
+        ${precoHTML(p)}
         <div class="avisos">${ativos ? `<span class="pill info">${ativos} ${ativos === 1 ? 'interessado' : 'interessados'}</span>` : ''}
           ${pv ? `<span class="pill ok">Visita ${fData(pv.v.data, {day:'2-digit', month:'2-digit'})} ${esc(pv.v.hora || '')}</span>` : ''}
           ${fim !== null && fim <= 60 ? `<span class="pill ${fim < 0 ? 'bad' : 'warn'}">${fim < 0 ? 'Contrato vencido' : 'Contrato vence em ' + fim + ' dias'}</span>` : ''}</div>
@@ -400,7 +423,7 @@ const linha = (k, v) => v || v === 0 ? `<dt>${k}</dt><dd>${esc(v)}</dd>` : '';
 function tResumo(p) {
   const mapa = endLongo(p) ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(endLongo(p)) : '';
   return `<div class="painel duas"><section class="bloco"><h2>Dados do imóvel <button type="button" class="btn sm ghost" data-act="editar-imovel">Editar</button></h2>
-    <dl class="dl num">${linha('Aluguel pedido', brl(p.aluguel))}${linha('Área', p.area ? p.area + ' m²' : '')}${linha(p.tipo === 'comercial' ? 'Salas' : 'Quartos', p.quartos)}${linha('Banheiros', p.banheiros)}${linha('Vagas', p.vagas)}${linha('Cadastrado em', fData((p.criadoEm || '').slice(0, 10)))}</dl>
+    <dl class="dl num">${linha('Aluguel pedido', brl(p.aluguel))}${encargosInquilino(p) ? linha('Total mensal com encargos', brl((p.aluguel || 0) + encargosInquilino(p))) : ''}${temVenda(p) ? linha('Preço de venda', brl(p.venda)) : ''}${linha('Área', p.area ? p.area + ' m²' : '')}${linha(p.tipo === 'comercial' ? 'Salas' : 'Quartos', p.quartos)}${linha('Banheiros', p.banheiros)}${linha('Vagas', p.vagas)}${linha('Cadastrado em', fData((p.criadoEm || '').slice(0, 10)))}</dl>
     ${p.descricao ? `<p class="nota">${esc(p.descricao)}</p>` : ''}</section>
     <section class="bloco"><h2>Endereço</h2><p style="margin:0">${esc(endLongo(p)) || 'Ainda não informado.'}</p>
       ${mapa ? `<a class="link" href="${esc(mapa)}" target="_blank" rel="noopener">Abrir no mapa</a>` : ''}
@@ -412,7 +435,7 @@ function tFinanceiro(p) {
   const unicos = cs.filter(c => c.freq === 'unico' && c.pagoPor !== 'inquilino').reduce((s, c) => s + c.valor, 0);
   const enc = encargosInquilino(p), base = (alugado && p.inquilino && p.inquilino.valor) || p.aluguel || 0;
   return `<div class="painel duas"><section class="bloco"><h2>Custos <button type="button" class="btn sm acc" data-act="add-custo">+ Custo</button></h2>
-    ${cs.length ? `<ul class="lista num">${cs.map(c => `<li><div class="g"><strong>${esc(c.nome)}</strong><small>${FREQ[c.freq] || ''} · pago ${c.pagoPor === 'inquilino' ? 'pelo inquilino' : 'por você'}</small></div><strong>${brl(c.valor)}</strong><button type="button" class="icon" data-act="editar-custo" data-id="${esc(c.id)}" aria-label="Editar ${esc(c.nome)}">✎</button></li>`).join('')}</ul>`
+    ${cs.length ? `<ul class="lista num">${cs.map(c => `<li><div class="g"><strong>${esc(c.nome)}</strong><small>${FREQ[c.freq] || ''} · pago ${c.pagoPor === 'inquilino' ? (alugado ? 'pelo inquilino' : 'por você até alugar, depois pelo inquilino') : 'por você'}</small></div><strong>${brl(c.valor)}</strong><button type="button" class="icon" data-act="editar-custo" data-id="${esc(c.id)}" aria-label="Editar ${esc(c.nome)}">✎</button></li>`).join('')}</ul>`
       : '<p class="end">Cadastre IPTU, condomínio, seguro, manutenção e o que mais pesar neste imóvel.</p>'}</section>
     <section class="bloco"><h2>Resultado do mês</h2><dl class="dl num">${linha('Aluguel ' + (alugado ? 'recebido' : 'pedido (vago)'), brl(alugado ? entra : p.aluguel))}${linha('Seus custos mensais', brl(sai))}${unicos ? linha('Gastos pontuais', brl(unicos)) : ''}${linha('Custo por ano', brl(sai * 12))}</dl>
       <div class="total num"><span>${alugado ? 'Sobra por mês' : 'Custa por mês vago'}</span><strong class="${liq >= 0 ? 'pos' : 'neg'}">${brl(liq)}</strong></div>
@@ -497,6 +520,8 @@ function formImovel(p) {
     sel('Situação', 'status', STATUS, p ? p.status : 'disponivel', 'c3') +
     campo('Aluguel pedido (R$)', 'aluguel', numIn(p && p.aluguel), 'c3', 'inputmode="decimal" placeholder="0,00"') +
     campo('Área (m²)', 'area', p && p.area, 'c3', 'inputmode="decimal"') +
+    sel('Anunciado para', 'finalidade', {aluguel: 'Só aluguel', ambos: 'Aluguel e venda', venda: 'Só venda'}, (p && p.finalidade) || 'aluguel', 'c3') +
+    campo('Preço de venda (R$)', 'venda', numIn(p && p.venda), 'c3', 'inputmode="decimal" placeholder="Se estiver à venda"') +
     campo('Quartos / salas', 'quartos', p && p.quartos, 'c2', 'inputmode="numeric"') + campo('Banheiros', 'banheiros', p && p.banheiros, 'c2', 'inputmode="numeric"') + campo('Vagas', 'vagas', p && p.vagas, 'c2', 'inputmode="numeric"') +
     campo('Rua', 'rua', e.rua, 'c4') + campo('Número', 'numero', e.numero, 'c2') +
     campo('Complemento', 'complemento', e.complemento, 'c3') + campo('Bairro', 'bairro', e.bairro, 'c3') +
@@ -506,7 +531,7 @@ function formImovel(p) {
       if (!d.nome.trim()) { toast('Dê um nome ao imóvel.'); return false; }
       const x = p ? editavel(p.id) : {id: uid(), criadoEm: new Date().toISOString(), fotos: [], custos: [], interessados: [], codigo: novoCodigo(d.tipo)};
       if (p && p.tipo !== d.tipo) x.codigo = novoCodigo(d.tipo);
-      Object.assign(x, {nome: d.nome.trim(), tipo: d.tipo, status: d.status, aluguel: parseBRL(d.aluguel), area: d.area.trim(), quartos: d.quartos.trim(), banheiros: d.banheiros.trim(), vagas: d.vagas.trim(), descricao: d.descricao.trim(),
+      Object.assign(x, {nome: d.nome.trim(), tipo: d.tipo, status: d.status, aluguel: parseBRL(d.aluguel), finalidade: d.finalidade, venda: parseBRL(d.venda), area: d.area.trim(), quartos: d.quartos.trim(), banheiros: d.banheiros.trim(), vagas: d.vagas.trim(), descricao: d.descricao.trim(),
         endereco: {rua: d.rua.trim(), numero: d.numero.trim(), complemento: d.complemento.trim(), bairro: d.bairro.trim(), cidade: d.cidade.trim(), uf: d.uf.trim().toUpperCase(), cep: d.cep.trim()}});
       if (novo) { state.openId = x.id; state.tab = 'resumo'; scrollTo(0, 0); }
       salvar(x); toast(novo ? 'Imóvel cadastrado. Agora adicione as fotos.' : 'Imóvel atualizado.');
