@@ -247,6 +247,7 @@ textarea{min-height:92px;resize:vertical}
 </div>
 <div class="toast" id="toast" role="status" hidden></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -419,6 +420,7 @@ function vDetalhe(p) {
       ${podeFoto() ? `<button type="button" class="addfoto" data-act="add-fotos"><span><b>+</b>Adicionar fotos</span></button>` : (fotos.length ? '' : '<div class="addfoto"><span>Fotos indisponíveis nesta visualização</span></div>')}</div>
     <div class="dhead"><div class="linha"><span class="tag inline">${esc(p.codigo || '')}</span><span class="pill">${p.tipo === 'comercial' ? 'Comercial' : 'Residencial'}</span></div>
       <h1>${esc(p.nome)}</h1><div class="end">${esc(endLongo(p)) || 'Endereço não informado'}</div>
+      <div class="contatos"><button type="button" class="btn sm" data-act="gerar-descricao">Gerar descrição do anúncio</button>${fotos.length ? `<button type="button" class="btn sm ghost" data-act="baixar-fotos">Baixar as ${fotos.length} fotos</button>` : ''}</div>
       <div class="seg" role="group" aria-label="Situação do imóvel">${Object.keys(STATUS).map(k => `<button type="button" class="${st === k ? 's-' + k : ''}" data-act="status" data-v="${k}" aria-pressed="${st === k}">${STATUS[k][0]}</button>`).join('')}</div></div>
     <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button type="button" role="tab" data-act="tab" data-v="${k}" aria-selected="${state.tab === k}">${l}${k === 'interessados' && leads.length ? `<sup>${leads.length}</sup>` : ''}</button>`).join('')}</div>
     ${state.tab === 'financeiro' ? tFinanceiro(p) : state.tab === 'inquilino' ? tInquilino(p) : state.tab === 'interessados' ? tInteressados(p) : tResumo(p)}`;
@@ -640,6 +642,57 @@ function abrirLight(i) {
   pedirFoto(f.id).then(u => { if (u && lightI === idx && !$('#light').hidden) im.src = u; });
 }
 
+/* ---------- anúncio e download ---------- */
+function salvarArquivo(blob, nome) { const u = URL.createObjectURL(blob), l = document.createElement('a'); l.href = u; l.download = nome; document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(u), 20000); }
+const slug = t => String(t || 'imovel').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase().slice(0, 50) || 'imovel';
+let baixando = false;
+async function baixarFotos(p) {
+  if (baixando) return; const fs = p.fotos || [];
+  if (!window.JSZip) { toast('Não consegui carregar o compactador. Confira a internet e recarregue.'); return; }
+  baixando = true;
+  try { const zip = new JSZip(), pedidos = fs.map(f => pedirFoto(f.id)); let n = 0;
+    for (let i = 0; i < fs.length; i++) { toast('Preparando foto ' + (i + 1) + ' de ' + fs.length + '…'); const u = await pedidos[i]; if (!u) continue;
+      zip.file('foto-' + String(i + 1).padStart(2, '0') + '.jpg', await (await fetch(u)).blob()); n++; }
+    if (!n) { toast('Não consegui baixar as fotos. Tente de novo.'); return; }
+    salvarArquivo(await zip.generateAsync({type: 'blob'}), slug(p.nome) + '-fotos.zip');
+    toast(n === fs.length ? n + ' fotos no arquivo baixado.' : n + ' de ' + fs.length + ' fotos baixadas. Tente de novo para as que faltaram.');
+  } catch (e) { toast('Não consegui montar o arquivo de fotos.'); } finally { baixando = false; }
+}
+let versaoAnuncio = 0;
+function descricaoAnuncio(p, v) {
+  const e = p.endereco || {}, com = p.tipo === 'comercial', fin = p.finalidade || 'aluguel', n = x => parseInt(x) || 0, pl = (q, s, ps) => q + ' ' + (q === 1 ? s : ps);
+  const local = [e.bairro, e.cidade].filter(Boolean).join(', '), onde = e.bairro ? 'em ' + e.bairro : e.cidade ? 'em ' + e.cidade : 'em ótima localização';
+  const tam = p.area ? 'de ' + p.area + ' m² ' : '', q = n(p.quartos);
+  const chamada = {aluguel: 'PARA ALUGAR', ambos: 'PARA ALUGAR OU COMPRAR', venda: 'À VENDA'}[fin];
+  const aberturas = com ? [
+    `Seu negócio no endereço certo. Sala ${tam}${onde}, pronta para receber sua equipe e seus clientes com a estrutura que o dia a dia pede.`,
+    `Espaço profissional, bem localizado e com custo que cabe no planejamento. Uma sala ${tam}${onde}, ideal para escritório, consultório ou estúdio.`,
+    `Procurando um ponto para crescer? Este espaço ${tam}${onde} une boa localização, praticidade e fácil acesso para quem trabalha e para quem visita.`
+  ] : [
+    `Um lar pronto para você chegar. Imóvel ${tam}${onde}${q ? ', com ' + pl(q, 'quarto', 'quartos') : ''}, perto de tudo e com a tranquilidade que a rotina pede.`,
+    `Conforto e praticidade para morar bem. Residência ${tam}${onde}, bem cuidada e com espaços que funcionam no dia a dia.`,
+    `Seu próximo endereço pode ser este. Imóvel ${tam}${onde}, pronto para morar e fácil de se sentir em casa.`
+  ];
+  const fechos = ['📲 Agende sua visita e conheça de perto.', '📲 Chame no WhatsApp e marque um horário para visitar.', '📲 Gostou? Fale comigo e venha conhecer pessoalmente.'];
+  const itens = [p.area ? '📐 ' + p.area + ' m²' : '', q ? '🚪 ' + (com ? pl(q, 'sala', 'salas') : pl(q, 'quarto', 'quartos')) : '', n(p.banheiros) ? '🚿 ' + pl(n(p.banheiros), 'banheiro', 'banheiros') : '', n(p.vagas) ? '🚗 ' + pl(n(p.vagas), 'vaga', 'vagas') : ''].filter(Boolean);
+  const mens = c => c.freq === 'anual' ? c.valor / 12 : c.valor, enc = (p.custos || []).filter(c => c.pagoPor === 'inquilino' && c.freq !== 'unico');
+  const valores = [];
+  if (fin !== 'venda' && p.aluguel) { valores.push('• Aluguel: ' + brl(p.aluguel)); enc.forEach(c => valores.push('• ' + c.nome + ': ' + brl(mens(c)) + (c.freq === 'anual' ? ' por mês' : '')));
+    if (enc.length) valores.push('• Total por mês: ' + brl(p.aluguel + enc.reduce((s, c) => s + mens(c), 0))); }
+  if (fin !== 'aluguel' && p.venda) valores.push('• Venda: ' + brl(p.venda));
+  const rua = [e.rua, local].filter(Boolean).join(' · ');
+  return [(com ? '🏢 ' : '🏡 ') + (com ? 'SALA COMERCIAL ' : 'IMÓVEL RESIDENCIAL ') + chamada + (local ? '\n📍 ' + local : ''),
+    aberturas[v % 3], itens.join('  ·  '), p.descricao ? '✨ ' + p.descricao.trim() : '', valores.length ? '💰 Valores\n' + valores.join('\n') : '',
+    rua ? '🗺️ ' + rua : '', fechos[v % 3] + (p.codigo ? '\nRef.: ' + p.codigo : '')].filter(Boolean).join('\n\n');
+}
+function formDescricao(p) {
+  abrirSheet({titulo: 'Descrição para anunciar', ok: 'Copiar texto', corpo:
+    `<label class="f">Texto do anúncio (pode editar antes de copiar)<textarea id="f-anuncio" name="anuncio" style="min-height:340px">${esc(descricaoAnuncio(p, versaoAnuncio))}</textarea></label>
+     <div class="f"><button type="button" class="btn sm ghost" data-act="outra-descricao" style="justify-self:start">Gerar outra versão</button></div>`,
+    onOk: d => { const t = d.anuncio; (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Texto copiado. É só colar no anúncio.'))
+      .catch(() => { const a = $('#f-anuncio'); if (a) { a.select(); try { document.execCommand('copy'); toast('Texto copiado.'); } catch (e) { toast('Selecione o texto e copie manualmente.'); } } }); return false; }});
+}
+
 /* ---------- eventos ---------- */
 document.addEventListener('click', async ev => {
   const b = ev.target.closest('[data-act]'); if (!b) return;
@@ -662,6 +715,9 @@ document.addEventListener('click', async ev => {
       const x = editavel(pid), f = x.fotos.splice(lightI, 1)[0]; if (x.capa === f.id) x.capa = x.fotos[0] ? x.fotos[0].id : null; await salvar(x);
       api('apagarFotos', {ids: [f.id, f.t].filter(Boolean)}).catch(() => {}); } }
   else if (a === 'nome-custo') { $('#f-nome').value = b.dataset.v; document.querySelectorAll('[data-act="nome-custo"]').forEach(k => k.setAttribute('aria-pressed', k === b)); const v = $('#f-valor'); if (v) v.focus(); }
+  else if (a === 'gerar-descricao') formDescricao(getP(pid));
+  else if (a === 'outra-descricao') { versaoAnuncio++; $('#f-anuncio').value = descricaoAnuncio(getP(pid), versaoAnuncio); }
+  else if (a === 'baixar-fotos') baixarFotos(getP(pid));
   else if (a === 'add-custo') formCusto(pid);
   else if (a === 'editar-custo') formCusto(pid, id);
   else if (a === 'editar-inquilino') formInquilino(pid);
